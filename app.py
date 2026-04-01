@@ -159,16 +159,31 @@ if menu == "📋 Nueva Atención":
                 nombre = st.text_input("Nombre")
                 edad = st.number_input("Edad", 18, 70)
                 sexo = st.selectbox("Sexo", ["Masculino","Femenino","Otro"])
-                cargo = st.text_input("Cargo")
+                cargo = st.text_input("Cargo (Ej. Chofer, Operador, Supervisor)")
             with col2:
-                area = st.text_input("Área/Base")
+                # AQUÍ ESTÁ EL CAMBIO 1: Área como lista desplegable
+                area = st.selectbox("Área/Base", ["Serenazgo / Patrullaje", "Centro de Monitoreo / CCTV", "Guardianía / Puestos Fijos", "Administrativo", "Otro"])
                 tiempo = st.text_input("Tiempo de servicio")
                 contrato = st.selectbox("Tipo de contrato", ["CAS","Nombrado","Locador","Otro"])
                 telefono = st.text_input("Teléfono")
 
             st.subheader("2. Motivo y Descripción")
-            motivo = st.selectbox("Motivo", ["Estrés laboral","Conflicto con compañero","Problemas familiares","Otros"])
-            solicitante = st.selectbox("Solicitante", ["Voluntario","Jefe","RRHH","Psicología","Otro"])
+            
+            # AQUÍ ESTÁ EL CAMBIO 2: Motivos dinámicos según el área
+            if area == "Serenazgo / Patrullaje":
+                opciones_motivo = ["Estrés por agresiones/conflictos en calle", "Estrés por turnos rotativos", "Falta de respaldo en intervenciones", "Problemas familiares", "Conflicto con compañero", "Burnout", "Otros"]
+            elif area == "Centro de Monitoreo / CCTV":
+                opciones_motivo = ["Trauma vicario (visualización de accidentes/delitos)", "Fatiga visual / mental extrema", "Estrés por turnos rotativos", "Problemas familiares", "Conflicto con compañero", "Otros"]
+            elif area == "Guardianía / Puestos Fijos":
+                opciones_motivo = ["Aislamiento / Soledad", "Monotonía / Aburrimiento extremo", "Problemas ergonómicos", "Problemas familiares", "Conflicto con compañero", "Otros"]
+            elif area == "Administrativo":
+                opciones_motivo = ["Sobrecarga de quejas del público", "Estrés burocrático / Sedentarismo", "Problemas familiares", "Conflicto con compañero", "Otros"]
+            else:
+                opciones_motivo = ["Estrés laboral", "Conflicto con compañero", "Problemas familiares", "Otros"]
+
+            motivo = st.selectbox("Motivo principal", opciones_motivo)
+            
+            solicitante = st.selectbox("Solicitante", ["Voluntario","Jefe de Unidad","RRHH","Psicología","Otro"])
             descripcion = st.text_area("Descripción del problema")
             tiempo_prob = st.selectbox("Tiempo del problema", ["Días","Semanas","Meses","Años"])
             ambito = st.selectbox("Ámbito", ["Laboral","Familiar","Personal","Mixto"])
@@ -176,10 +191,10 @@ if menu == "📋 Nueva Atención":
             st.subheader("3. Observación y Plan")
             actitud = st.selectbox("Actitud", ["Colaborador","Reservado","Evasivo","Ansioso","Otro"])
             observaciones = st.text_area("Observaciones clínicas")
-            area_afectada = st.multiselect("Área afectada", ["Desempeño","Relaciones","Puntualidad","Ninguna"])
+            area_afectada = st.multiselect("Área afectada", ["Desempeño","Relaciones interpersonales","Puntualidad/Asistencia","Ninguna"])
             orientacion = st.text_area("Orientación brindada")
             acuerdos = st.text_area("Acuerdos")
-            plan = st.multiselect("Plan de Acción", ["Seguimiento","RRHH","Jefe","Sin seguimiento"])
+            plan = st.multiselect("Plan de Acción", ["Seguimiento","Derivación Externa","Reporte a Jefatura","Pausas Activas","Sin seguimiento"])
             fecha_seg = st.date_input("Fecha de seguimiento")
             conclusion = st.text_area("Conclusión y recomendaciones")
 
