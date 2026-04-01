@@ -156,19 +156,37 @@ if menu == "📋 Nueva Atención":
                 area = st.selectbox("Área / Base", ["Serenazgo / Patrullaje", "Centro de Monitoreo / CCTV", "Guardianía / Puestos Fijos", "Administrativo", "Otro"])
             with col2:
                 tiempo = st.text_input("Tiempo de servicio")
-                contrato = st.selectbox("Tipo de contrato", ["CAS", "Permanente", "Nombrado", "Locador", "Otro"])
+                contrato = st.selectbox("Tipo de contrato", ["CAS", "PERMANENTE O Nombrado", "Locador", "Otro"])
                 telefono = st.text_input("Teléfono")
 
             st.subheader("2. Motivo de Atención")
-            lista_motivos = [
+            
+            # --- RESTAURACIÓN DE LA LÓGICA INTELIGENTE FUSIONADA CON TU FICHA ---
+            opciones_oficiales = [
                 "Estrés laboral", "Conflicto con compañero", "Conflicto con jefe", "Problemas familiares", 
                 "Problemas de pareja", "Problemas económicos", "Desmotivación laboral", "Problemas de conducta laboral", 
                 "Dificultad de adaptación al trabajo", "Problemas de trabajo en equipo", "Problemas disciplinarios", 
                 "Bajo rendimiento laboral", "Problemas personales", "Orientación laboral", "Otros"
             ]
-            motivo = st.selectbox("Motivo principal", lista_motivos)
+            
+            if area == "Serenazgo / Patrullaje":
+                motivos_area = ["Estrés laboral (Agresiones en calle)", "Falta de respaldo en intervenciones"] + opciones_oficiales
+            elif area == "Centro de Monitoreo / CCTV":
+                motivos_area = ["Trauma vicario (Visualización de accidentes/delitos)", "Fatiga visual / mental extrema"] + opciones_oficiales
+            elif area == "Guardianía / Puestos Fijos":
+                motivos_area = ["Aislamiento / Soledad", "Monotonía extrema", "Problemas ergonómicos"] + opciones_oficiales
+            elif area == "Administrativo":
+                motivos_area = ["Sobrecarga de atención al público", "Estrés burocrático"] + opciones_oficiales
+            else:
+                motivos_area = opciones_oficiales
+            
+            # Borra duplicados manteniendo el orden para que lo específico quede arriba
+            motivos_area = list(dict.fromkeys(motivos_area))
+            
+            motivo = st.selectbox("Motivo principal", motivos_area)
+            
             motivo_otro = ""
-            if motivo == "Otros":
+            if motivo == "Otros" or "Otros:" in motivo:
                 motivo_otro = st.text_input("Especifique otro motivo:")
 
             solicitante = st.selectbox("¿Quién solicita la atención?", ["Voluntario", "Derivado por jefe", "Recursos Humanos", "Psicología (seguimiento)", "Otro"])
