@@ -27,7 +27,7 @@ def cargar_datos():
     try:
         # Intenta conectar a Google Sheets
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Hoja 1", usecols=list(range(len(COLUMNAS))))
+        df = conn.read(worksheet="Hoja 1", usecols=list(range(len(COLUMNAS))), ttl=0)
         return df.dropna(how="all") # Quita filas totalmente vacías
     except Exception:
         # Si falla (porque aún no configuramos las claves), devuelve un DataFrame vacío para que la app no se rompa
@@ -218,7 +218,7 @@ if menu == "📈 Seguimiento":
     
     if dni_seg:
         if not df_atenciones.empty:
-            resultado = df_atenciones[df_atenciones["DNI"].astype(str) == dni_seg]
+            resultado = df_atenciones[df_atenciones["DNI"].astype(str).str.replace(".0", "", regex=False).str.strip() == dni_seg.strip()]
             
             if not resultado.empty:
                 ultimo_registro = resultado.iloc[-1]
@@ -298,7 +298,7 @@ if menu == "🔎 Buscar por DNI":
     dni_buscar = st.text_input("Ingrese DNI")
     if st.button("Buscar"):
         if not df_atenciones.empty:
-            resultado = df_atenciones[df_atenciones["DNI"].astype(str) == dni_buscar]
+            resultado = df_atenciones[df_atenciones["DNI"].astype(str).str.replace(".0", "", regex=False).str.strip() == dni_buscar.strip()]
             if not resultado.empty:
                 st.dataframe(resultado, use_container_width=True)
             else:
