@@ -89,7 +89,7 @@ def login():
     password = st.text_input("Contraseña", type="password")
 
     if st.button("Ingresar"):
-        if user == "psicologo" and password == "1234": # Más adelante cambiaremos esto por algo más seguro
+        if user == "psicologoluigi" and password == "psicologoluigi151297": # Más adelante cambiaremos esto por algo más seguro
             st.session_state["login"] = True
             st.rerun()
         else:
