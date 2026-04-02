@@ -156,7 +156,7 @@ if menu == "📋 Nueva Atención":
                 area = st.selectbox("Área / Base", ["Serenazgo / Patrullaje", "Centro de Monitoreo / CCTV", "Guardianía / Puestos Fijos", "Administrativo", "Otro"])
             with col2:
                 tiempo = st.text_input("Tiempo de servicio")
-                contrato = st.selectbox("Tipo de contrato", ["CAS", "PERMANENTE O Nombrado", "Locador", "Otro"])
+                contrato = st.selectbox("Tipo de contrato", ["CAS", "Permanente", "Nombrado", "Locador", "Otro"])
                 telefono = st.text_input("Teléfono")
 
             st.subheader("2. Motivo de Atención")
