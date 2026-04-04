@@ -12,7 +12,7 @@ from streamlit_gsheets import GSheetsConnection
 # -------------------------
 st.set_page_config(page_title="Consultorio del Dr. Luigi's", layout="wide")
 
-# Nombres de las columnas exactas que tendrá tu Google Sheet (ACTUALIZADO A LA NUEVA FICHA)
+# Nombres de las columnas exactas que tendrá tu Google Sheet
 COLUMNAS = [
     "Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", 
     "Área", "Tiempo servicio", "Tipo de contrato", "Teléfono", "Motivo de Atención", "Solicitante", 
@@ -21,13 +21,24 @@ COLUMNAS = [
 ]
 
 # -------------------------
-# CONEXIÓN A GOOGLE SHEETS
+# CONEXIÓN A GOOGLE SHEETS Y LIMPIEZA
 # -------------------------
 def cargar_datos():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         df = conn.read(worksheet="Hoja 1", usecols=list(range(len(COLUMNAS))), ttl=0)
-        return df.dropna(how="all") 
+        df = df.dropna(how="all") 
+        
+        # --- CORRECCIÓN PARA VISUALIZACIÓN EN LA INTERFAZ ---
+        if "DNI" in df.columns:
+            # 1. Convertir a texto puro y quitar '.0' si Pandas lo leyó como decimal
+            df["DNI"] = df["DNI"].astype(str).str.replace(r"\.0$", "", regex=True)
+            # 2. Quitar la comilla simple si la importó de Google Sheets
+            df["DNI"] = df["DNI"].str.replace("'", "", regex=False).str.strip()
+            # 3. Forzar a que siempre tenga 8 dígitos rellenando con ceros a la izquierda
+            df["DNI"] = df["DNI"].apply(lambda x: x.zfill(8) if x.isdigit() else x)
+            
+        return df
     except Exception:
         return pd.DataFrame(columns=COLUMNAS)
 
@@ -53,8 +64,10 @@ def generar_codigo():
     return f"HC-{fecha}-{rand}"
 
 def obtener_codigo_por_dni(dni, df):
-    if not df.empty and dni in df["DNI"].astype(str).values:
-        codigo = df[df["DNI"].astype(str) == dni]["Código"].iloc[0]
+    # Aseguramos que la búsqueda también tenga 8 dígitos
+    dni_limpio = str(dni).strip().zfill(8)
+    if not df.empty and dni_limpio in df["DNI"].values:
+        codigo = df[df["DNI"] == dni_limpio]["Código"].iloc[0]
         return codigo, True
     return generar_codigo(), False
 
@@ -68,7 +81,9 @@ def generar_word_memoria(datos):
 
     for k, v in datos.items():
         if k not in ["Código", "Fecha", "Hora"]:
-            doc.add_paragraph(f"{k}: {v}")
+            # Limpiamos la comilla simple al exportar a Word por estética
+            v_limpio = str(v).replace("'", "") if k == "DNI" else v
+            doc.add_paragraph(f"{k}: {v_limpio}")
 
     bio = io.BytesIO()
     doc.save(bio)
@@ -155,13 +170,12 @@ if menu == "📋 Nueva Atención":
                 cargo = st.text_input("Cargo")
                 area = st.selectbox("Área / Base", ["Serenazgo / Patrullaje", "Centro de Monitoreo / CCTV", "Guardianía / Puestos Fijos", "Administrativo", "Otro"])
             with col2:
-                tiempo = st.text_input("Tiempo de servicio")
+                tiempo = st.text_input("Tiempo servicio")
                 contrato = st.selectbox("Tipo de contrato", ["CAS", "Permanente", "Nombrado", "Locador", "Otro"])
                 telefono = st.text_input("Teléfono")
 
             st.subheader("2. Motivo de Atención")
             
-            # --- RESTAURACIÓN DE LA LÓGICA INTELIGENTE FUSIONADA CON TU FICHA ---
             opciones_oficiales = [
                 "Estrés laboral", "Conflicto con compañero", "Conflicto con jefe", "Problemas familiares", 
                 "Problemas de pareja", "Problemas económicos", "Desmotivación laboral", "Problemas de conducta laboral", 
@@ -180,9 +194,7 @@ if menu == "📋 Nueva Atención":
             else:
                 motivos_area = opciones_oficiales
             
-            # Borra duplicados manteniendo el orden para que lo específico quede arriba
             motivos_area = list(dict.fromkeys(motivos_area))
-            
             motivo = st.selectbox("Motivo principal", motivos_area)
             
             motivo_otro = ""
@@ -225,9 +237,12 @@ if menu == "📋 Nueva Atención":
         if guardar:
             motivo_final = motivo if motivo != "Otros" else f"Otros: {motivo_otro}"
             fecha_prox_str = str(fecha_prox) if requiere_cita == "Sí" else "No requiere"
+            
+            # Forzamos los 8 dígitos y agregamos comilla para Google Sheets
+            dni_final = f"'{dni_form.strip().zfill(8)}"
 
             datos = {
-                "Código": codigo, "Fecha": fecha, "Hora": hora, "Nombres y Apellidos": nombre, "DNI": f"'{dni_form}",
+                "Código": codigo, "Fecha": fecha, "Hora": hora, "Nombres y Apellidos": nombre, "DNI": dni_final,
                 "Edad": edad, "Sexo": sexo, "Cargo": cargo, "Área": area, "Tiempo servicio": tiempo,
                 "Tipo de contrato": contrato, "Teléfono": telefono, "Motivo de Atención": motivo_final, "Solicitante": solicitante,
                 "Descripción": descripcion, "Tiempo del problema": tiempo_prob, "Ámbito del problema": ambito,
@@ -256,7 +271,9 @@ if menu == "📈 Seguimiento":
     
     if dni_seg:
         if not df_atenciones.empty:
-            resultado = df_atenciones[df_atenciones["DNI"].astype(str).str.replace(".0", "", regex=False).str.strip() == dni_seg.strip()]
+            # Búsqueda usando exactamente 8 dígitos
+            dni_busqueda = dni_seg.strip().zfill(8)
+            resultado = df_atenciones[df_atenciones["DNI"] == dni_busqueda]
             
             if not resultado.empty:
                 ultimo_registro = resultado.iloc[-1]
@@ -292,7 +309,7 @@ if menu == "📈 Seguimiento":
                     
                     datos_seg = {
                         "Código": ultimo_registro['Código'], "Fecha": fecha_hoy, "Hora": datetime.now().strftime("%H:%M:%S"),
-                        "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": f"'{dni_seg}",
+                        "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": f"'{dni_busqueda}",
                         "Edad": ultimo_registro['Edad'], "Sexo": ultimo_registro['Sexo'], "Cargo": ultimo_registro['Cargo'],
                         "Área": ultimo_registro['Área'], "Tiempo servicio": ultimo_registro.get('Tiempo servicio', '-'),
                         "Tipo de contrato": ultimo_registro.get('Tipo de contrato', '-'), "Teléfono": ultimo_registro.get('Teléfono', '-'),
@@ -308,7 +325,7 @@ if menu == "📈 Seguimiento":
                         st.success("✅ Seguimiento registrado con éxito.")
                         
                     doc_seg = generar_word_memoria(datos_seg)
-                    st.download_button("📄 Descargar Ficha de Seguimiento", doc_seg, file_name=f"Seguimiento_{dni_seg}_{fecha_hoy}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    st.download_button("📄 Descargar Ficha de Seguimiento", doc_seg, file_name=f"Seguimiento_{dni_busqueda}_{fecha_hoy}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             else:
                 st.error("No se encontró ningún registro previo con ese DNI.")
         else:
@@ -326,7 +343,10 @@ if menu == "🔎 Buscar por DNI":
     dni_buscar = st.text_input("Ingrese DNI")
     if st.button("Buscar"):
         if not df_atenciones.empty:
-            resultado = df_atenciones[df_atenciones["DNI"].astype(str).str.replace(".0", "", regex=False).str.strip() == dni_buscar.strip()]
+            # Búsqueda exacta de 8 dígitos
+            dni_busqueda = dni_buscar.strip().zfill(8)
+            resultado = df_atenciones[df_atenciones["DNI"] == dni_busqueda]
+            
             if not resultado.empty:
                 st.dataframe(resultado, use_container_width=True)
             else:
