@@ -29,13 +29,15 @@ def cargar_datos():
         df = conn.read(worksheet="Hoja 1", usecols=list(range(len(COLUMNAS))), ttl=0)
         df = df.dropna(how="all") 
         
-        # --- CORRECCIÓN PARA VISUALIZACIÓN EN LA INTERFAZ ---
+        # --- CORRECCIÓN PARA VISUALIZACIÓN Y BÚSQUEDA ---
         if "DNI" in df.columns:
-            # 1. Convertir a texto puro y quitar '.0' si Pandas lo leyó como decimal
-            df["DNI"] = df["DNI"].astype(str).str.replace(r"\.0$", "", regex=True)
-            # 2. Quitar la comilla simple si la importó de Google Sheets
+            # 1. Convertir a texto puro
+            df["DNI"] = df["DNI"].astype(str)
+            # 2. Quitar el '.0' si Pandas lo leyó como decimal en algún momento
+            df["DNI"] = df["DNI"].str.replace(r"\.0$", "", regex=True)
+            # 3. Eliminar el apóstrofe de los registros que se guardaron antes
             df["DNI"] = df["DNI"].str.replace("'", "", regex=False).str.strip()
-            # 3. Forzar a que siempre tenga 8 dígitos rellenando con ceros a la izquierda
+            # 4. Rellenar con ceros a la izquierda hasta tener 8 dígitos (solo si son números)
             df["DNI"] = df["DNI"].apply(lambda x: x.zfill(8) if x.isdigit() else x)
             
         return df
@@ -64,7 +66,6 @@ def generar_codigo():
     return f"HC-{fecha}-{rand}"
 
 def obtener_codigo_por_dni(dni, df):
-    # Aseguramos que la búsqueda también tenga 8 dígitos
     dni_limpio = str(dni).strip().zfill(8)
     if not df.empty and dni_limpio in df["DNI"].values:
         codigo = df[df["DNI"] == dni_limpio]["Código"].iloc[0]
@@ -81,9 +82,7 @@ def generar_word_memoria(datos):
 
     for k, v in datos.items():
         if k not in ["Código", "Fecha", "Hora"]:
-            # Limpiamos la comilla simple al exportar a Word por estética
-            v_limpio = str(v).replace("'", "") if k == "DNI" else v
-            doc.add_paragraph(f"{k}: {v_limpio}")
+            doc.add_paragraph(f"{k}: {v}")
 
     bio = io.BytesIO()
     doc.save(bio)
@@ -238,8 +237,8 @@ if menu == "📋 Nueva Atención":
             motivo_final = motivo if motivo != "Otros" else f"Otros: {motivo_otro}"
             fecha_prox_str = str(fecha_prox) if requiere_cita == "Sí" else "No requiere"
             
-            # Forzamos los 8 dígitos y agregamos comilla para Google Sheets
-            dni_final = f"'{dni_form.strip().zfill(8)}"
+            # Sin la comilla, rellenando con ceros directamente
+            dni_final = dni_form.strip().zfill(8)
 
             datos = {
                 "Código": codigo, "Fecha": fecha, "Hora": hora, "Nombres y Apellidos": nombre, "DNI": dni_final,
@@ -271,7 +270,6 @@ if menu == "📈 Seguimiento":
     
     if dni_seg:
         if not df_atenciones.empty:
-            # Búsqueda usando exactamente 8 dígitos
             dni_busqueda = dni_seg.strip().zfill(8)
             resultado = df_atenciones[df_atenciones["DNI"] == dni_busqueda]
             
@@ -309,7 +307,7 @@ if menu == "📈 Seguimiento":
                     
                     datos_seg = {
                         "Código": ultimo_registro['Código'], "Fecha": fecha_hoy, "Hora": datetime.now().strftime("%H:%M:%S"),
-                        "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": f"'{dni_busqueda}",
+                        "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": dni_busqueda,
                         "Edad": ultimo_registro['Edad'], "Sexo": ultimo_registro['Sexo'], "Cargo": ultimo_registro['Cargo'],
                         "Área": ultimo_registro['Área'], "Tiempo servicio": ultimo_registro.get('Tiempo servicio', '-'),
                         "Tipo de contrato": ultimo_registro.get('Tipo de contrato', '-'), "Teléfono": ultimo_registro.get('Teléfono', '-'),
@@ -343,7 +341,6 @@ if menu == "🔎 Buscar por DNI":
     dni_buscar = st.text_input("Ingrese DNI")
     if st.button("Buscar"):
         if not df_atenciones.empty:
-            # Búsqueda exacta de 8 dígitos
             dni_busqueda = dni_buscar.strip().zfill(8)
             resultado = df_atenciones[df_atenciones["DNI"] == dni_busqueda]
             
