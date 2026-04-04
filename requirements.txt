@@ -1,5 +1,5 @@
-1  streamlit
-2  pandas
-3  python-docx
-4  st-gsheets-connection
-5  plotly
+streamlit
+pandas
+python-docx
+st-gsheets-connection
+plotly
