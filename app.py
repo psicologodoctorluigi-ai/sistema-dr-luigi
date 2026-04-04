@@ -62,7 +62,6 @@ def guardar_datos(nuevos_datos_dict):
 # FUNCIONES AUXILIARES
 # -------------------------
 def generar_codigo():
-    # Usamos la hora de Perú para el código
     fecha = datetime.now(ZONA_PERU).strftime("%Y%m%d")
     rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"HC-{fecha}-{rand}"
@@ -77,20 +76,17 @@ def obtener_codigo_por_dni(dni, df):
 def generar_word_memoria(datos):
     doc = Document()
     
-    # 1. Configurar estilo normal por defecto a Times New Roman, negro
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Times New Roman'
     font.color.rgb = RGBColor(0, 0, 0)
     
-    # 2. Título Principal (Tamaño 14, Negrita, CENTRADO)
     titulo = doc.add_paragraph()
     titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run_titulo = titulo.add_run("FICHA DE ATENCIÓN DE CONSEJERÍA PSICOLÓGICA LABORAL")
     run_titulo.bold = True
     run_titulo.font.size = Pt(14)
     
-    # Subtítulo institucional (Tamaño 12, Negrita, CENTRADO, con espaciado abajo)
     sub_titulo = doc.add_paragraph()
     sub_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub_titulo.paragraph_format.space_after = Pt(20)
@@ -98,7 +94,6 @@ def generar_word_memoria(datos):
     run_sub.bold = True
     run_sub.font.size = Pt(12)
 
-    # Función interna para crear Subtítulos numerados
     def add_subtitulo(texto, numero):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -108,7 +103,6 @@ def generar_word_memoria(datos):
         run.bold = True
         run.font.size = Pt(12)
 
-    # Función interna para crear texto de cuerpo
     def add_texto(etiqueta, valor):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -131,7 +125,6 @@ def generar_word_memoria(datos):
         run_val = p.add_run(val_str)
         run_val.font.size = Pt(11)
 
-    # --- ESTRUCTURACIÓN DEL DOCUMENTO ---
     add_subtitulo("DATOS GENERALES", 1)
     for c in ["Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", "Área", "Tiempo de servicio", "Tipo de contrato", "Teléfono"]:
         if c in datos: add_texto(c, datos[c])
@@ -219,7 +212,6 @@ if menu == "🏠 Inicio":
 if menu == "📋 Nueva Atención":
     st.title("📋 Ficha de Atención Psicológica Laboral")
 
-    # Hora extraída exactamente desde Lima, Perú
     fecha = datetime.now(ZONA_PERU).strftime("%Y-%m-%d")
     hora = datetime.now(ZONA_PERU).strftime("%H:%M:%S")
 
@@ -300,10 +292,12 @@ if menu == "📋 Nueva Atención":
             st.subheader("6. Plan de Acción")
             plan = st.multiselect("Plan de Acción", ["Seguimiento psicológico laboral", "Derivación a Recursos Humanos", "Derivación a jefe inmediato", "Recomendación de capacitación", "Mediación laboral", "Sin seguimiento", "Otros"])
             
-            requiere_cita = st.radio("¿Próxima cita?", ["No", "Sí"])
-            fecha_prox = None
-            if requiere_cita == "Sí":
-                fecha_prox = st.date_input("Fecha de próxima cita")
+            # --- SOLUCIÓN A LA PRÓXIMA CITA EN NUEVA ATENCIÓN ---
+            col_cita1, col_cita2 = st.columns(2)
+            with col_cita1:
+                requiere_cita = st.radio("¿Requiere próxima cita?", ["No", "Sí"])
+            with col_cita2:
+                fecha_prox = st.date_input("Seleccione la fecha (Solo si requiere)")
 
             st.subheader("7. Conclusión y Recomendaciones Laborales")
             conclusion = st.text_area("Conclusión y recomendaciones")
@@ -312,6 +306,8 @@ if menu == "📋 Nueva Atención":
 
         if guardar:
             motivo_final = motivo if motivo != "Otros" else f"Otros: {motivo_otro}"
+            
+            # Aquí la magia: Si el doctor dijo "No", ignoramos la fecha ingresada
             fecha_prox_str = str(fecha_prox) if requiere_cita == "Sí" else "No requiere"
             
             dni_final = dni_form.strip().zfill(8)
@@ -363,7 +359,6 @@ if menu == "📈 Seguimiento":
                     with col2:
                         nueva_actitud = st.selectbox("Actitud en sesión", ["Colaborador", "Reservado", "Evasivo", "Agresivo", "Ansioso", "Desmotivado", "Preocupado", "Otro"])
                         
-                        # Hora extraída exactamente desde Lima, Perú
                         fecha_hoy = datetime.now(ZONA_PERU).strftime("%Y-%m-%d")
                         hora_hoy = datetime.now(ZONA_PERU).strftime("%H:%M:%S")
 
@@ -374,14 +369,17 @@ if menu == "📈 Seguimiento":
                     st.subheader("Plan de Acción")
                     proximo_paso = st.multiselect("Plan de Acción (Seguimiento)", ["Seguimiento psicológico laboral", "Derivación a Recursos Humanos", "Alta administrativa", "Derivación externa", "Cierre de caso", "Otros"])
                     
-                    req_cita_seg = st.radio("¿Nueva próxima cita?", ["No", "Sí"])
-                    fecha_prox_seg = None
-                    if req_cita_seg == "Sí":
-                        fecha_prox_seg = st.date_input("Fecha sugerida")
+                    # --- SOLUCIÓN A LA PRÓXIMA CITA EN SEGUIMIENTO ---
+                    col_seg1, col_seg2 = st.columns(2)
+                    with col_seg1:
+                        req_cita_seg = st.radio("¿Nueva próxima cita?", ["No", "Sí"])
+                    with col_seg2:
+                        fecha_prox_seg = st.date_input("Fecha sugerida (Solo si requiere)")
 
                     guardar_seg = st.form_submit_button("💾 Registrar Seguimiento")
 
                 if guardar_seg:
+                    # Aplicando la misma magia
                     fecha_prox_seg_str = str(fecha_prox_seg) if req_cita_seg == "Sí" else "No requiere"
                     
                     datos_seg = {
