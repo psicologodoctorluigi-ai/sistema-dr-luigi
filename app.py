@@ -32,15 +32,10 @@ def cargar_datos():
         df = conn.read(worksheet="Hoja 1", usecols=list(range(len(COLUMNAS))), ttl=0)
         df = df.dropna(how="all") 
         
-        # --- CORRECCIÓN PARA VISUALIZACIÓN Y BÚSQUEDA ---
         if "DNI" in df.columns:
-            # 1. Convertir a texto puro
             df["DNI"] = df["DNI"].astype(str)
-            # 2. Quitar el '.0' si Pandas lo leyó como decimal en algún momento
             df["DNI"] = df["DNI"].str.replace(r"\.0$", "", regex=True)
-            # 3. Eliminar el apóstrofe de los registros que se guardaron antes
             df["DNI"] = df["DNI"].str.replace("'", "", regex=False).str.strip()
-            # 4. Rellenar con ceros a la izquierda hasta tener 8 dígitos (solo si son números)
             df["DNI"] = df["DNI"].apply(lambda x: x.zfill(8) if x.isdigit() else x)
             
         return df
@@ -84,39 +79,53 @@ def generar_word_memoria(datos):
     font.name = 'Times New Roman'
     font.color.rgb = RGBColor(0, 0, 0)
     
-    # 2. Título Principal (Tamaño 14, Negrita, Justificado)
+    # 2. Título Principal (Tamaño 14, Negrita, CENTRADO)
     titulo = doc.add_paragraph()
-    titulo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run_titulo = titulo.add_run("FICHA DE ATENCIÓN DE CONSEJERÍA PSICOLÓGICA LABORAL")
     run_titulo.bold = True
     run_titulo.font.size = Pt(14)
     
-    # Subtítulo institucional
+    # Subtítulo institucional (Tamaño 12, Negrita, CENTRADO, con espaciado abajo)
     sub_titulo = doc.add_paragraph()
-    sub_titulo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    run_sub = sub_titulo.add_run("Subgerencia de Seguridad Ciudadana\n")
+    sub_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub_titulo.paragraph_format.space_after = Pt(20) # Da un buen respiro antes de los datos
+    run_sub = sub_titulo.add_run("Subgerencia de Seguridad Ciudadana")
     run_sub.bold = True
     run_sub.font.size = Pt(12)
 
-    # Función interna para crear Subtítulos numerados (Tamaño 12, Negrita, Justificado)
+    # Función interna para crear Subtítulos numerados
     def add_subtitulo(texto, numero):
         p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        run = p.add_run(f"\n{numero}. {texto}")
+        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        p.paragraph_format.space_before = Pt(14) # Espacio para separar visualmente de la sección anterior
+        p.paragraph_format.space_after = Pt(4)
+        run = p.add_run(f"{numero}. {texto}")
         run.bold = True
         run.font.size = Pt(12)
 
-    # Función interna para crear texto de cuerpo (Tamaño 11, Justificado)
+    # Función interna para crear texto de cuerpo
     def add_texto(etiqueta, valor):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        p.paragraph_format.space_after = Pt(2) # Espaciado limpio
+        p.paragraph_format.space_after = Pt(6) # Espaciado entre líneas limpio
         
         run_etiq = p.add_run(f"{etiqueta}: ")
         run_etiq.bold = True
         run_etiq.font.size = Pt(11)
         
-        val_str = str(valor).replace("'", "") if etiqueta == "DNI" else str(valor)
+        # --- Limpieza específica de datos ---
+        if etiqueta == "Edad":
+            try:
+                # Convierte "55.0" a 55 entero, y luego a texto
+                val_str = str(int(float(valor)))
+            except:
+                val_str = str(valor)
+        elif etiqueta == "DNI":
+            val_str = str(valor).replace("'", "")
+        else:
+            val_str = str(valor)
+            
         run_val = p.add_run(val_str)
         run_val.font.size = Pt(11)
 
@@ -419,17 +428,14 @@ if menu == "🔎 Buscar por DNI":
             if not resultado.empty:
                 st.dataframe(resultado, use_container_width=True)
                 
-                # --- NUEVA SECCIÓN DE DESCARGA DESDE EL BUSCADOR ---
                 st.markdown("---")
                 st.subheader("📄 Descargar Fichas Clínicas")
                 st.write("Se encontraron las siguientes atenciones. Seleccione la que desea descargar:")
                 
-                # Genera un botón de descarga por cada visita encontrada
                 for index, row in resultado.iterrows():
                     datos_fila = row.to_dict()
                     archivo_word = generar_word_memoria(datos_fila)
                     
-                    # Identificar si es atención primaria o seguimiento para el título del botón
                     tipo_atencion = "Atención Primaria"
                     if "SEGUIMIENTO" in str(row.get('Motivo de Atención', '')):
                         tipo_atencion = "Seguimiento"
@@ -439,7 +445,7 @@ if menu == "🔎 Buscar por DNI":
                         data=archivo_word,
                         file_name=f"Ficha_{row['Código']}_{row['Fecha']}.docx",
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key=f"dl_btn_{index}" # Key única obligatoria en Streamlit
+                        key=f"dl_btn_{index}" 
                     )
             else:
                 st.warning("No se encontraron registros para ese DNI.")
