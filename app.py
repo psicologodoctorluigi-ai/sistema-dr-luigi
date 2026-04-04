@@ -9,16 +9,15 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
 from streamlit_gsheets import GSheetsConnection
 import plotly.express as px
+import urllib.parse 
 
 # -------------------------
 # CONFIGURACIÓN Y ZONA HORARIA
 # -------------------------
 st.set_page_config(page_title="Consultorio del Dr. Luigi's", layout="wide")
 
-# Forzar zona horaria de Lima, Perú (UTC -5)
 ZONA_PERU = timezone(timedelta(hours=-5))
 
-# Nombres de las columnas exactas que tendrá tu Google Sheet
 COLUMNAS = [
     "Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", 
     "Área", "Tiempo de servicio", "Tipo de contrato", "Teléfono", "Motivo de Atención", "Solicitante", 
@@ -73,6 +72,24 @@ def obtener_codigo_por_dni(dni, df):
         return codigo, True
     return generar_codigo(), False
 
+# --- FUNCIÓN WHATSAPP Y LIMPIEZA DE TELÉFONO ---
+def generar_link_whatsapp(telefono, nombre, fecha_cita):
+    if not telefono or str(telefono).strip() in ["", "-", "None", "nan"]:
+        return None
+        
+    # Limpia '.0', espacios o guiones. Solo deja números puros.
+    telf_texto = str(telefono).replace(".0", "")
+    telf_limpio = ''.join(filter(str.isdigit, telf_texto))
+    
+    if len(telf_limpio) == 9:
+        telf_limpio = "51" + telf_limpio
+        
+    mensaje = f"Hola {nombre}, te saludo del Consultorio Psicológico de Seguridad Ciudadana. Te escribo para recordarte tu próxima cita programada para el día {fecha_cita}. ¡Te esperamos!"
+    mensaje_codificado = urllib.parse.quote(mensaje)
+    
+    return f"https://wa.me/{telf_limpio}?text={mensaje_codificado}"
+
+
 def generar_word_memoria(datos):
     doc = Document()
     
@@ -112,7 +129,8 @@ def generar_word_memoria(datos):
         run_etiq.bold = True
         run_etiq.font.size = Pt(11)
         
-        if etiqueta == "Edad":
+        # Limpieza para que no salgan decimales ni en la Edad ni en el Teléfono en el Word
+        if etiqueta in ["Edad", "Teléfono"]:
             try:
                 val_str = str(int(float(valor)))
             except:
@@ -292,7 +310,6 @@ if menu == "📋 Nueva Atención":
             st.subheader("6. Plan de Acción")
             plan = st.multiselect("Plan de Acción", ["Seguimiento psicológico laboral", "Derivación a Recursos Humanos", "Derivación a jefe inmediato", "Recomendación de capacitación", "Mediación laboral", "Sin seguimiento", "Otros"])
             
-            # --- SOLUCIÓN A LA PRÓXIMA CITA EN NUEVA ATENCIÓN ---
             col_cita1, col_cita2 = st.columns(2)
             with col_cita1:
                 requiere_cita = st.radio("¿Requiere próxima cita?", ["No", "Sí"])
@@ -306,10 +323,7 @@ if menu == "📋 Nueva Atención":
 
         if guardar:
             motivo_final = motivo if motivo != "Otros" else f"Otros: {motivo_otro}"
-            
-            # Aquí la magia: Si el doctor dijo "No", ignoramos la fecha ingresada
             fecha_prox_str = str(fecha_prox) if requiere_cita == "Sí" else "No requiere"
-            
             dni_final = dni_form.strip().zfill(8)
 
             datos = {
@@ -325,13 +339,24 @@ if menu == "📋 Nueva Atención":
             if guardar_datos(datos):
                 st.success(f"✅ Atención guardada exitosamente en la nube.")
             
+            col_down1, col_down2 = st.columns(2)
+            
             archivo_word_memoria = generar_word_memoria(datos)
-            st.download_button(
-                label="📄 Descargar ficha en Word",
-                data=archivo_word_memoria,
-                file_name=f"Ficha_{codigo}_{fecha}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
+            with col_down1:
+                st.download_button(
+                    label="📄 Descargar ficha en Word",
+                    data=archivo_word_memoria,
+                    file_name=f"Ficha_{codigo}_{fecha}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+                
+            with col_down2:
+                if requiere_cita == "Sí":
+                    link_wsp = generar_link_whatsapp(telefono, nombre, fecha_prox_str)
+                    if link_wsp:
+                        st.link_button("💬 Notificar Cita por WhatsApp", link_wsp)
+                    else:
+                        st.warning("⚠️ Agregue un teléfono válido para habilitar WhatsApp.")
 
 # -------------------------
 # SEGUIMIENTO
@@ -369,7 +394,6 @@ if menu == "📈 Seguimiento":
                     st.subheader("Plan de Acción")
                     proximo_paso = st.multiselect("Plan de Acción (Seguimiento)", ["Seguimiento psicológico laboral", "Derivación a Recursos Humanos", "Alta administrativa", "Derivación externa", "Cierre de caso", "Otros"])
                     
-                    # --- SOLUCIÓN A LA PRÓXIMA CITA EN SEGUIMIENTO ---
                     col_seg1, col_seg2 = st.columns(2)
                     with col_seg1:
                         req_cita_seg = st.radio("¿Nueva próxima cita?", ["No", "Sí"])
@@ -379,15 +403,16 @@ if menu == "📈 Seguimiento":
                     guardar_seg = st.form_submit_button("💾 Registrar Seguimiento")
 
                 if guardar_seg:
-                    # Aplicando la misma magia
                     fecha_prox_seg_str = str(fecha_prox_seg) if req_cita_seg == "Sí" else "No requiere"
+                    
+                    telefono_paciente = ultimo_registro.get('Teléfono', '')
                     
                     datos_seg = {
                         "Código": ultimo_registro['Código'], "Fecha": fecha_hoy, "Hora": hora_hoy,
                         "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": dni_busqueda,
                         "Edad": ultimo_registro['Edad'], "Sexo": ultimo_registro['Sexo'], "Cargo": ultimo_registro['Cargo'],
                         "Área": ultimo_registro['Área'], "Tiempo de servicio": ultimo_registro.get('Tiempo de servicio', '-'),
-                        "Tipo de contrato": ultimo_registro.get('Tipo de contrato', '-'), "Teléfono": ultimo_registro.get('Teléfono', '-'),
+                        "Tipo de contrato": ultimo_registro.get('Tipo de contrato', '-'), "Teléfono": telefono_paciente,
                         "Motivo de Atención": f"SEGUIMIENTO: {ultimo_registro.get('Motivo de Atención', '')}",
                         "Solicitante": "Psicología (seguimiento)", "Descripción": evolucion_detallada,
                         "Tiempo del problema": "-", "Ámbito del problema": "-", "Actitud": nueva_actitud,
@@ -399,8 +424,20 @@ if menu == "📈 Seguimiento":
                     if guardar_datos(datos_seg):
                         st.success("✅ Seguimiento registrado con éxito.")
                         
+                    col_down1, col_down2 = st.columns(2)
                     doc_seg = generar_word_memoria(datos_seg)
-                    st.download_button("📄 Descargar Ficha de Seguimiento", doc_seg, file_name=f"Seguimiento_{dni_busqueda}_{fecha_hoy}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    
+                    with col_down1:
+                        st.download_button("📄 Descargar Ficha de Seguimiento", doc_seg, file_name=f"Seguimiento_{dni_busqueda}_{fecha_hoy}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    
+                    with col_down2:
+                        if req_cita_seg == "Sí":
+                            link_wsp = generar_link_whatsapp(telefono_paciente, ultimo_registro['Nombres y Apellidos'], fecha_prox_seg_str)
+                            if link_wsp:
+                                st.link_button("💬 Notificar Cita por WhatsApp", link_wsp)
+                            else:
+                                st.warning("⚠️ Paciente sin teléfono registrado para WhatsApp.")
+
             else:
                 st.error("No se encontró ningún registro previo con ese DNI.")
         else:
@@ -425,8 +462,8 @@ if menu == "🔎 Buscar por DNI":
                 st.dataframe(resultado, use_container_width=True)
                 
                 st.markdown("---")
-                st.subheader("📄 Descargar Fichas Clínicas")
-                st.write("Se encontraron las siguientes atenciones. Seleccione la que desea descargar:")
+                st.subheader("📄 Gestor de Documentos y Citas")
+                st.write("Se encontraron las siguientes atenciones. Seleccione la acción que desea realizar:")
                 
                 for index, row in resultado.iterrows():
                     datos_fila = row.to_dict()
@@ -436,13 +473,26 @@ if menu == "🔎 Buscar por DNI":
                     if "SEGUIMIENTO" in str(row.get('Motivo de Atención', '')):
                         tipo_atencion = "Seguimiento"
                         
-                    st.download_button(
-                        label=f"⬇️ Descargar Ficha de {tipo_atencion} del {row['Fecha']} ({row['Hora']})",
-                        data=archivo_word,
-                        file_name=f"Ficha_{row['Código']}_{row['Fecha']}.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key=f"dl_btn_{index}" 
-                    )
+                    col_a, col_b = st.columns(2)
+                    
+                    with col_a:
+                        st.download_button(
+                            label=f"⬇️ Descargar Ficha ({row['Fecha']})",
+                            data=archivo_word,
+                            file_name=f"Ficha_{row['Código']}_{row['Fecha']}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key=f"dl_btn_{index}" 
+                        )
+                        
+                    with col_b:
+                        if str(row.get('Requiere cita', '')) == "Sí":
+                            link_wsp = generar_link_whatsapp(row.get('Teléfono', ''), row['Nombres y Apellidos'], row.get('Fecha próxima cita', ''))
+                            if link_wsp:
+                                st.link_button(f"💬 Enviar Recordatorio de Cita", link_wsp, key=f"wsp_btn_{index}")
+                            else:
+                                st.write("*(Sin N° de Teléfono)*")
+                        else:
+                            st.write("*(Sin cita programada)*")
             else:
                 st.warning("No se encontraron registros para ese DNI.")
         else:
