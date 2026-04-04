@@ -444,3 +444,7 @@ if menu == "📊 Reportes y Alertas":
 if menu == "🚪 Cerrar sesión":
     st.session_state["login"] = False
     st.rerun()
+
+
+
+
