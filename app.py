@@ -15,7 +15,7 @@ st.set_page_config(page_title="Consultorio del Dr. Luigi's", layout="wide")
 # Nombres de las columnas exactas que tendrá tu Google Sheet (ACTUALIZADO A LA NUEVA FICHA)
 COLUMNAS = [
     "Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", 
-    "Área", "Tiempo de servicio", "Tipo de contrato", "Teléfono", "Motivo de Atención", "Solicitante", 
+    "Área", "Tiempo servicio", "Tipo de contrato", "Teléfono", "Motivo de Atención", "Solicitante", 
     "Descripción", "Tiempo del problema", "Ámbito del problema", "Actitud", "Observaciones conductuales", 
     "Área afectada", "Orientación", "Acuerdos", "Plan de Acción", "Requiere cita", "Fecha próxima cita", "Conclusión"
 ]
@@ -227,8 +227,8 @@ if menu == "📋 Nueva Atención":
             fecha_prox_str = str(fecha_prox) if requiere_cita == "Sí" else "No requiere"
 
             datos = {
-                "Código": codigo, "Fecha": fecha, "Hora": hora, "Nombres y Apellidos": nombre, "DNI": dni_form,
-                "Edad": edad, "Sexo": sexo, "Cargo": cargo, "Área": area, "Tiempo de servicio": tiempo,
+                "Código": codigo, "Fecha": fecha, "Hora": hora, "Nombres y Apellidos": nombre, "DNI": f"'{dni_form}",
+                "Edad": edad, "Sexo": sexo, "Cargo": cargo, "Área": area, "Tiempo servicio": tiempo,
                 "Tipo de contrato": contrato, "Teléfono": telefono, "Motivo de Atención": motivo_final, "Solicitante": solicitante,
                 "Descripción": descripcion, "Tiempo del problema": tiempo_prob, "Ámbito del problema": ambito,
                 "Actitud": actitud, "Observaciones conductuales": observaciones, "Área afectada": ", ".join(area_afectada),
@@ -292,9 +292,9 @@ if menu == "📈 Seguimiento":
                     
                     datos_seg = {
                         "Código": ultimo_registro['Código'], "Fecha": fecha_hoy, "Hora": datetime.now().strftime("%H:%M:%S"),
-                        "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": dni_seg,
+                        "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": f"'{dni_seg}",
                         "Edad": ultimo_registro['Edad'], "Sexo": ultimo_registro['Sexo'], "Cargo": ultimo_registro['Cargo'],
-                        "Área": ultimo_registro['Área'], "Tiempo de servicio": ultimo_registro.get('Tiempo de servicio', '-'),
+                        "Área": ultimo_registro['Área'], "Tiempo servicio": ultimo_registro.get('Tiempo servicio', '-'),
                         "Tipo de contrato": ultimo_registro.get('Tipo de contrato', '-'), "Teléfono": ultimo_registro.get('Teléfono', '-'),
                         "Motivo de Atención": f"SEGUIMIENTO: {ultimo_registro.get('Motivo de Atención', '')}",
                         "Solicitante": "Psicología (seguimiento)", "Descripción": evolucion_detallada,
