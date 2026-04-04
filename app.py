@@ -21,7 +21,7 @@ ZONA_PERU = timezone(timedelta(hours=-5))
 # Nombres de las columnas exactas que tendrá tu Google Sheet
 COLUMNAS = [
     "Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", 
-    "Área", "Tiempo servicio", "Tipo de contrato", "Teléfono", "Motivo de Atención", "Solicitante", 
+    "Área", "Tiempo de servicio", "Tipo de contrato", "Teléfono", "Motivo de Atención", "Solicitante", 
     "Descripción", "Tiempo del problema", "Ámbito del problema", "Actitud", "Observaciones conductuales", 
     "Área afectada", "Orientación", "Acuerdos", "Plan de Acción", "Requiere cita", "Fecha próxima cita", "Conclusión"
 ]
@@ -133,7 +133,7 @@ def generar_word_memoria(datos):
 
     # --- ESTRUCTURACIÓN DEL DOCUMENTO ---
     add_subtitulo("DATOS GENERALES", 1)
-    for c in ["Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", "Área", "Tiempo servicio", "Tipo de contrato", "Teléfono"]:
+    for c in ["Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", "Área", "Tiempo de servicio", "Tipo de contrato", "Teléfono"]:
         if c in datos: add_texto(c, datos[c])
 
     add_subtitulo("MOTIVO DE ATENCIÓN", 2)
@@ -246,7 +246,7 @@ if menu == "📋 Nueva Atención":
                 cargo = st.text_input("Cargo")
                 area = st.selectbox("Área / Base", ["Serenazgo / Patrullaje", "Centro de Monitoreo / CCTV", "Guardianía / Puestos Fijos", "Administrativo", "Otro"])
             with col2:
-                tiempo = st.text_input("Tiempo servicio")
+                tiempo = st.text_input("Tiempo de servicio")
                 contrato = st.selectbox("Tipo de contrato", ["CAS", "Permanente", "Nombrado", "Locador", "Otro"])
                 telefono = st.text_input("Teléfono")
 
@@ -318,7 +318,7 @@ if menu == "📋 Nueva Atención":
 
             datos = {
                 "Código": codigo, "Fecha": fecha, "Hora": hora, "Nombres y Apellidos": nombre, "DNI": dni_final,
-                "Edad": edad, "Sexo": sexo, "Cargo": cargo, "Área": area, "Tiempo servicio": tiempo,
+                "Edad": edad, "Sexo": sexo, "Cargo": cargo, "Área": area, "Tiempo de servicio": tiempo,
                 "Tipo de contrato": contrato, "Teléfono": telefono, "Motivo de Atención": motivo_final, "Solicitante": solicitante,
                 "Descripción": descripcion, "Tiempo del problema": tiempo_prob, "Ámbito del problema": ambito,
                 "Actitud": actitud, "Observaciones conductuales": observaciones, "Área afectada": ", ".join(area_afectada),
@@ -388,7 +388,7 @@ if menu == "📈 Seguimiento":
                         "Código": ultimo_registro['Código'], "Fecha": fecha_hoy, "Hora": hora_hoy,
                         "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": dni_busqueda,
                         "Edad": ultimo_registro['Edad'], "Sexo": ultimo_registro['Sexo'], "Cargo": ultimo_registro['Cargo'],
-                        "Área": ultimo_registro['Área'], "Tiempo servicio": ultimo_registro.get('Tiempo servicio', '-'),
+                        "Área": ultimo_registro['Área'], "Tiempo de servicio": ultimo_registro.get('Tiempo de servicio', '-'),
                         "Tipo de contrato": ultimo_registro.get('Tipo de contrato', '-'), "Teléfono": ultimo_registro.get('Teléfono', '-'),
                         "Motivo de Atención": f"SEGUIMIENTO: {ultimo_registro.get('Motivo de Atención', '')}",
                         "Solicitante": "Psicología (seguimiento)", "Descripción": evolucion_detallada,
