@@ -6,6 +6,7 @@ import string
 from docx import Document
 import io
 from streamlit_gsheets import GSheetsConnection
+import plotly.express as px
 
 # -------------------------
 # CONFIGURACIÓN
@@ -116,7 +117,7 @@ if not st.session_state["login"]:
 # -------------------------
 st.sidebar.title("🧠 Menú")
 menu = st.sidebar.radio("Navegación", 
-                        ["🏠 Inicio", "📋 Nueva Atención", "📈 Seguimiento", "📂 Historial", "🔎 Buscar por DNI", "🚪 Cerrar sesión"])
+                        ["🏠 Inicio", "📋 Nueva Atención", "📈 Seguimiento", "📂 Historial", "🔎 Buscar por DNI", "📊 Reportes y Alertas", "🚪 Cerrar sesión"])
 
 df_atenciones = cargar_datos()
 
@@ -350,6 +351,92 @@ if menu == "🔎 Buscar por DNI":
                 st.warning("No se encontraron registros para ese DNI.")
         else:
             st.info("La base de datos está vacía.")
+
+# -------------------------
+# REPORTES Y ALERTAS (DASHBOARD)
+# -------------------------
+if menu == "📊 Reportes y Alertas":
+    st.title("📊 Panel de Control Psicosocial")
+    st.write("Análisis epidemiológico y alertas organizacionales.")
+
+    if df_atenciones.empty:
+        st.info("No hay datos suficientes para generar reportes.")
+    else:
+        # Limpiamos los seguimientos para no duplicar el conteo de motivos reales
+        df_base = df_atenciones[~df_atenciones["Motivo de Atención"].astype(str).str.contains("SEGUIMIENTO", na=False)]
+        
+        # --- SECCIÓN 1: ALERTAS INTELIGENTES ---
+        st.subheader("🚨 Alertas de Riesgo")
+        col_alerta1, col_alerta2 = st.columns(2)
+        
+        with col_alerta1:
+            # Alerta de pacientes recurrentes
+            conteo_pacientes = df_atenciones["DNI"].value_counts()
+            pacientes_frecuentes = conteo_pacientes[conteo_pacientes >= 3]
+            
+            if not pacientes_frecuentes.empty:
+                st.error(f"⚠️ **Atención Crítica:** Hay {len(pacientes_frecuentes)} paciente(s) con 3 o más atenciones. Requieren evaluación detallada.")
+                for dni, atenciones in pacientes_frecuentes.items():
+                    nombre_paciente = df_atenciones[df_atenciones["DNI"] == dni]["Nombres y Apellidos"].iloc[0]
+                    st.write(f"- **{nombre_paciente}** (DNI: {dni}): {atenciones} visitas")
+            else:
+                st.success("✅ No hay pacientes con hiper-recurrencia (3+ visitas).")
+
+        with col_alerta2:
+            # Alerta de áreas calientes
+            if not df_base.empty:
+                area_critica = df_base["Área"].value_counts().idxmax()
+                cantidad_area = df_base["Área"].value_counts().max()
+                st.warning(f"🔥 **Área Caliente:** **{area_critica}** es el sector con más intervenciones ({cantidad_area} casos).")
+            
+        st.markdown("---")
+
+        # --- SECCIÓN 2: GRÁFICOS ORGANIZACIONALES ---
+        st.subheader("📈 Distribución de Casos")
+        
+        if not df_base.empty:
+            col_graf1, col_graf2 = st.columns(2)
+
+            with col_graf1:
+                # Gráfico Circular: Motivos de Atención
+                st.markdown("**Principales Motivos de Consulta**")
+                conteo_motivos = df_base["Motivo de Atención"].value_counts().reset_index()
+                conteo_motivos.columns = ['Motivo', 'Cantidad']
+                
+                fig_motivos = px.pie(
+                    conteo_motivos, 
+                    values='Cantidad', 
+                    names='Motivo', 
+                    hole=0.4, 
+                    color_discrete_sequence=px.colors.sequential.RdBu
+                )
+                fig_motivos.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig_motivos, use_container_width=True)
+
+            with col_graf2:
+                # Gráfico de Barras: Casos por Área
+                st.markdown("**Intervenciones por Área de Trabajo**")
+                conteo_areas = df_base["Área"].value_counts().reset_index()
+                conteo_areas.columns = ['Área', 'Cantidad']
+                
+                fig_areas = px.bar(
+                    conteo_areas, 
+                    x='Área', 
+                    y='Cantidad', 
+                    text='Cantidad',
+                    color='Cantidad',
+                    color_continuous_scale='Reds'
+                )
+                fig_areas.update_layout(xaxis_title="Área / Base", yaxis_title="Número de Casos")
+                st.plotly_chart(fig_areas, use_container_width=True)
+                
+            # --- SECCIÓN 3: TABLA DE DIAGNÓSTICOS RÁPIDOS ---
+            st.subheader("📋 Detalle de Motivos por Área")
+            tabla_cruzada = pd.crosstab(df_base['Área'], df_base['Motivo de Atención'])
+            st.dataframe(tabla_cruzada, use_container_width=True)
+            
+        else:
+            st.info("Registra nuevas atenciones (no seguimientos) para visualizar los gráficos.")
 
 # -------------------------
 # LOGOUT
