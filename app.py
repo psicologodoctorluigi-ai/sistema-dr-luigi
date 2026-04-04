@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import random
 import string
 from docx import Document
@@ -11,9 +11,12 @@ from streamlit_gsheets import GSheetsConnection
 import plotly.express as px
 
 # -------------------------
-# CONFIGURACIÓN
+# CONFIGURACIÓN Y ZONA HORARIA
 # -------------------------
 st.set_page_config(page_title="Consultorio del Dr. Luigi's", layout="wide")
+
+# Forzar zona horaria de Lima, Perú (UTC -5)
+ZONA_PERU = timezone(timedelta(hours=-5))
 
 # Nombres de las columnas exactas que tendrá tu Google Sheet
 COLUMNAS = [
@@ -59,7 +62,8 @@ def guardar_datos(nuevos_datos_dict):
 # FUNCIONES AUXILIARES
 # -------------------------
 def generar_codigo():
-    fecha = datetime.now().strftime("%Y%m%d")
+    # Usamos la hora de Perú para el código
+    fecha = datetime.now(ZONA_PERU).strftime("%Y%m%d")
     rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"HC-{fecha}-{rand}"
 
@@ -89,7 +93,7 @@ def generar_word_memoria(datos):
     # Subtítulo institucional (Tamaño 12, Negrita, CENTRADO, con espaciado abajo)
     sub_titulo = doc.add_paragraph()
     sub_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    sub_titulo.paragraph_format.space_after = Pt(20) # Da un buen respiro antes de los datos
+    sub_titulo.paragraph_format.space_after = Pt(20)
     run_sub = sub_titulo.add_run("Subgerencia de Seguridad Ciudadana")
     run_sub.bold = True
     run_sub.font.size = Pt(12)
@@ -98,7 +102,7 @@ def generar_word_memoria(datos):
     def add_subtitulo(texto, numero):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        p.paragraph_format.space_before = Pt(14) # Espacio para separar visualmente de la sección anterior
+        p.paragraph_format.space_before = Pt(14) 
         p.paragraph_format.space_after = Pt(4)
         run = p.add_run(f"{numero}. {texto}")
         run.bold = True
@@ -108,16 +112,14 @@ def generar_word_memoria(datos):
     def add_texto(etiqueta, valor):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        p.paragraph_format.space_after = Pt(6) # Espaciado entre líneas limpio
+        p.paragraph_format.space_after = Pt(6) 
         
         run_etiq = p.add_run(f"{etiqueta}: ")
         run_etiq.bold = True
         run_etiq.font.size = Pt(11)
         
-        # --- Limpieza específica de datos ---
         if etiqueta == "Edad":
             try:
-                # Convierte "55.0" a 55 entero, y luego a texto
                 val_str = str(int(float(valor)))
             except:
                 val_str = str(valor)
@@ -130,38 +132,30 @@ def generar_word_memoria(datos):
         run_val.font.size = Pt(11)
 
     # --- ESTRUCTURACIÓN DEL DOCUMENTO ---
-    
-    # SECCIÓN 1: Datos Generales
     add_subtitulo("DATOS GENERALES", 1)
     for c in ["Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", "Área", "Tiempo servicio", "Tipo de contrato", "Teléfono"]:
         if c in datos: add_texto(c, datos[c])
 
-    # SECCIÓN 2: Motivo de Atención
     add_subtitulo("MOTIVO DE ATENCIÓN", 2)
     for c in ["Motivo de Atención", "Solicitante"]:
         if c in datos: add_texto(c, datos[c])
 
-    # SECCIÓN 3: Descripción del Problema
     add_subtitulo("DESCRIPCIÓN DEL PROBLEMA", 3)
     for c in ["Descripción", "Tiempo del problema", "Ámbito del problema"]:
         if c in datos: add_texto(c, datos[c])
 
-    # SECCIÓN 4: Observación del Psicólogo
     add_subtitulo("OBSERVACIÓN DEL PSICÓLOGO", 4)
     for c in ["Actitud", "Observaciones conductuales", "Área afectada"]:
         if c in datos: add_texto(c, datos[c])
 
-    # SECCIÓN 5: Orientación / Consejería Brindada
     add_subtitulo("ORIENTACIÓN Y CONSEJERÍA", 5)
     for c in ["Orientación", "Acuerdos"]:
         if c in datos: add_texto(c, datos[c])
 
-    # SECCIÓN 6: Plan de Acción
     add_subtitulo("PLAN DE ACCIÓN", 6)
     for c in ["Plan de Acción", "Requiere cita", "Fecha próxima cita"]:
         if c in datos: add_texto(c, datos[c])
 
-    # SECCIÓN 7: Conclusión y Recomendaciones
     add_subtitulo("CONCLUSIÓN Y RECOMENDACIONES", 7)
     for c in ["Conclusión"]:
         if c in datos: add_texto(c, datos[c])
@@ -225,8 +219,9 @@ if menu == "🏠 Inicio":
 if menu == "📋 Nueva Atención":
     st.title("📋 Ficha de Atención Psicológica Laboral")
 
-    fecha = datetime.now().strftime("%Y-%m-%d")
-    hora = datetime.now().strftime("%H:%M:%S")
+    # Hora extraída exactamente desde Lima, Perú
+    fecha = datetime.now(ZONA_PERU).strftime("%Y-%m-%d")
+    hora = datetime.now(ZONA_PERU).strftime("%H:%M:%S")
 
     dni_input = st.text_input("Ingrese DNI del trabajador para iniciar:")
     
@@ -367,7 +362,10 @@ if menu == "📈 Seguimiento":
                         cumplimiento = st.select_slider("Cumplimiento de acuerdos previos", options=["Ninguno", "Bajo", "Medio", "Alto", "Total"])
                     with col2:
                         nueva_actitud = st.selectbox("Actitud en sesión", ["Colaborador", "Reservado", "Evasivo", "Agresivo", "Ansioso", "Desmotivado", "Preocupado", "Otro"])
-                        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+                        
+                        # Hora extraída exactamente desde Lima, Perú
+                        fecha_hoy = datetime.now(ZONA_PERU).strftime("%Y-%m-%d")
+                        hora_hoy = datetime.now(ZONA_PERU).strftime("%H:%M:%S")
 
                     st.subheader("Detalles de la sesión")
                     evolucion_detallada = st.text_area("Descripción de la evolución (¿Qué ha pasado desde la última vez?)")
@@ -387,7 +385,7 @@ if menu == "📈 Seguimiento":
                     fecha_prox_seg_str = str(fecha_prox_seg) if req_cita_seg == "Sí" else "No requiere"
                     
                     datos_seg = {
-                        "Código": ultimo_registro['Código'], "Fecha": fecha_hoy, "Hora": datetime.now().strftime("%H:%M:%S"),
+                        "Código": ultimo_registro['Código'], "Fecha": fecha_hoy, "Hora": hora_hoy,
                         "Nombres y Apellidos": ultimo_registro['Nombres y Apellidos'], "DNI": dni_busqueda,
                         "Edad": ultimo_registro['Edad'], "Sexo": ultimo_registro['Sexo'], "Cargo": ultimo_registro['Cargo'],
                         "Área": ultimo_registro['Área'], "Tiempo servicio": ultimo_registro.get('Tiempo servicio', '-'),
