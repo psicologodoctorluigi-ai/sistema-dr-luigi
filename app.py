@@ -4,6 +4,8 @@ from datetime import datetime
 import random
 import string
 from docx import Document
+from docx.shared import Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
 from streamlit_gsheets import GSheetsConnection
 import plotly.express as px
@@ -75,15 +77,85 @@ def obtener_codigo_por_dni(dni, df):
 
 def generar_word_memoria(datos):
     doc = Document()
-    doc.add_heading("FICHA DE ATENCIÓN DE CONSEJERÍA PSICOLÓGICA LABORAL", 0)
-    doc.add_paragraph("Subgerencia de Seguridad Ciudadana\n")
+    
+    # 1. Configurar estilo normal por defecto a Times New Roman, negro
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.color.rgb = RGBColor(0, 0, 0)
+    
+    # 2. Título Principal (Tamaño 14, Negrita, Justificado)
+    titulo = doc.add_paragraph()
+    titulo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    run_titulo = titulo.add_run("FICHA DE ATENCIÓN DE CONSEJERÍA PSICOLÓGICA LABORAL")
+    run_titulo.bold = True
+    run_titulo.font.size = Pt(14)
+    
+    # Subtítulo institucional
+    sub_titulo = doc.add_paragraph()
+    sub_titulo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    run_sub = sub_titulo.add_run("Subgerencia de Seguridad Ciudadana\n")
+    run_sub.bold = True
+    run_sub.font.size = Pt(12)
 
-    doc.add_paragraph(f"Código HC: {datos['Código']}")
-    doc.add_paragraph(f"Fecha: {datos['Fecha']}  |  Hora: {datos['Hora']}\n")
+    # Función interna para crear Subtítulos numerados (Tamaño 12, Negrita, Justificado)
+    def add_subtitulo(texto, numero):
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        run = p.add_run(f"\n{numero}. {texto}")
+        run.bold = True
+        run.font.size = Pt(12)
 
-    for k, v in datos.items():
-        if k not in ["Código", "Fecha", "Hora"]:
-            doc.add_paragraph(f"{k}: {v}")
+    # Función interna para crear texto de cuerpo (Tamaño 11, Justificado)
+    def add_texto(etiqueta, valor):
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        p.paragraph_format.space_after = Pt(2) # Espaciado limpio
+        
+        run_etiq = p.add_run(f"{etiqueta}: ")
+        run_etiq.bold = True
+        run_etiq.font.size = Pt(11)
+        
+        val_str = str(valor).replace("'", "") if etiqueta == "DNI" else str(valor)
+        run_val = p.add_run(val_str)
+        run_val.font.size = Pt(11)
+
+    # --- ESTRUCTURACIÓN DEL DOCUMENTO ---
+    
+    # SECCIÓN 1: Datos Generales
+    add_subtitulo("DATOS GENERALES", 1)
+    for c in ["Código", "Fecha", "Hora", "Nombres y Apellidos", "DNI", "Edad", "Sexo", "Cargo", "Área", "Tiempo servicio", "Tipo de contrato", "Teléfono"]:
+        if c in datos: add_texto(c, datos[c])
+
+    # SECCIÓN 2: Motivo de Atención
+    add_subtitulo("MOTIVO DE ATENCIÓN", 2)
+    for c in ["Motivo de Atención", "Solicitante"]:
+        if c in datos: add_texto(c, datos[c])
+
+    # SECCIÓN 3: Descripción del Problema
+    add_subtitulo("DESCRIPCIÓN DEL PROBLEMA", 3)
+    for c in ["Descripción", "Tiempo del problema", "Ámbito del problema"]:
+        if c in datos: add_texto(c, datos[c])
+
+    # SECCIÓN 4: Observación del Psicólogo
+    add_subtitulo("OBSERVACIÓN DEL PSICÓLOGO", 4)
+    for c in ["Actitud", "Observaciones conductuales", "Área afectada"]:
+        if c in datos: add_texto(c, datos[c])
+
+    # SECCIÓN 5: Orientación / Consejería Brindada
+    add_subtitulo("ORIENTACIÓN Y CONSEJERÍA", 5)
+    for c in ["Orientación", "Acuerdos"]:
+        if c in datos: add_texto(c, datos[c])
+
+    # SECCIÓN 6: Plan de Acción
+    add_subtitulo("PLAN DE ACCIÓN", 6)
+    for c in ["Plan de Acción", "Requiere cita", "Fecha próxima cita"]:
+        if c in datos: add_texto(c, datos[c])
+
+    # SECCIÓN 7: Conclusión y Recomendaciones
+    add_subtitulo("CONCLUSIÓN Y RECOMENDACIONES", 7)
+    for c in ["Conclusión"]:
+        if c in datos: add_texto(c, datos[c])
 
     bio = io.BytesIO()
     doc.save(bio)
@@ -238,7 +310,6 @@ if menu == "📋 Nueva Atención":
             motivo_final = motivo if motivo != "Otros" else f"Otros: {motivo_otro}"
             fecha_prox_str = str(fecha_prox) if requiere_cita == "Sí" else "No requiere"
             
-            # Sin la comilla, rellenando con ceros directamente
             dni_final = dni_form.strip().zfill(8)
 
             datos = {
@@ -347,6 +418,29 @@ if menu == "🔎 Buscar por DNI":
             
             if not resultado.empty:
                 st.dataframe(resultado, use_container_width=True)
+                
+                # --- NUEVA SECCIÓN DE DESCARGA DESDE EL BUSCADOR ---
+                st.markdown("---")
+                st.subheader("📄 Descargar Fichas Clínicas")
+                st.write("Se encontraron las siguientes atenciones. Seleccione la que desea descargar:")
+                
+                # Genera un botón de descarga por cada visita encontrada
+                for index, row in resultado.iterrows():
+                    datos_fila = row.to_dict()
+                    archivo_word = generar_word_memoria(datos_fila)
+                    
+                    # Identificar si es atención primaria o seguimiento para el título del botón
+                    tipo_atencion = "Atención Primaria"
+                    if "SEGUIMIENTO" in str(row.get('Motivo de Atención', '')):
+                        tipo_atencion = "Seguimiento"
+                        
+                    st.download_button(
+                        label=f"⬇️ Descargar Ficha de {tipo_atencion} del {row['Fecha']} ({row['Hora']})",
+                        data=archivo_word,
+                        file_name=f"Ficha_{row['Código']}_{row['Fecha']}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key=f"dl_btn_{index}" # Key única obligatoria en Streamlit
+                    )
             else:
                 st.warning("No se encontraron registros para ese DNI.")
         else:
@@ -362,15 +456,12 @@ if menu == "📊 Reportes y Alertas":
     if df_atenciones.empty:
         st.info("No hay datos suficientes para generar reportes.")
     else:
-        # Limpiamos los seguimientos para no duplicar el conteo de motivos reales
         df_base = df_atenciones[~df_atenciones["Motivo de Atención"].astype(str).str.contains("SEGUIMIENTO", na=False)]
         
-        # --- SECCIÓN 1: ALERTAS INTELIGENTES ---
         st.subheader("🚨 Alertas de Riesgo")
         col_alerta1, col_alerta2 = st.columns(2)
         
         with col_alerta1:
-            # Alerta de pacientes recurrentes
             conteo_pacientes = df_atenciones["DNI"].value_counts()
             pacientes_frecuentes = conteo_pacientes[conteo_pacientes >= 3]
             
@@ -383,22 +474,18 @@ if menu == "📊 Reportes y Alertas":
                 st.success("✅ No hay pacientes con hiper-recurrencia (3+ visitas).")
 
         with col_alerta2:
-            # Alerta de áreas calientes
             if not df_base.empty:
                 area_critica = df_base["Área"].value_counts().idxmax()
                 cantidad_area = df_base["Área"].value_counts().max()
                 st.warning(f"🔥 **Área Caliente:** **{area_critica}** es el sector con más intervenciones ({cantidad_area} casos).")
             
         st.markdown("---")
-
-        # --- SECCIÓN 2: GRÁFICOS ORGANIZACIONALES ---
         st.subheader("📈 Distribución de Casos")
         
         if not df_base.empty:
             col_graf1, col_graf2 = st.columns(2)
 
             with col_graf1:
-                # Gráfico Circular: Motivos de Atención
                 st.markdown("**Principales Motivos de Consulta**")
                 conteo_motivos = df_base["Motivo de Atención"].value_counts().reset_index()
                 conteo_motivos.columns = ['Motivo', 'Cantidad']
@@ -414,7 +501,6 @@ if menu == "📊 Reportes y Alertas":
                 st.plotly_chart(fig_motivos, use_container_width=True)
 
             with col_graf2:
-                # Gráfico de Barras: Casos por Área
                 st.markdown("**Intervenciones por Área de Trabajo**")
                 conteo_areas = df_base["Área"].value_counts().reset_index()
                 conteo_areas.columns = ['Área', 'Cantidad']
@@ -430,7 +516,6 @@ if menu == "📊 Reportes y Alertas":
                 fig_areas.update_layout(xaxis_title="Área / Base", yaxis_title="Número de Casos")
                 st.plotly_chart(fig_areas, use_container_width=True)
                 
-            # --- SECCIÓN 3: TABLA DE DIAGNÓSTICOS RÁPIDOS ---
             st.subheader("📋 Detalle de Motivos por Área")
             tabla_cruzada = pd.crosstab(df_base['Área'], df_base['Motivo de Atención'])
             st.dataframe(tabla_cruzada, use_container_width=True)
